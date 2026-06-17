@@ -1,0 +1,58 @@
+# Render Blueprint for the Eventiko backend API.
+# Deploy: push to GitHub, then in Render → New → Blueprint, point at this repo.
+services:
+  - type: web
+    name: eventiko-backend
+    runtime: node
+    plan: starter
+    rootDir: backend
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 8080
+      - key: FRONTEND_URL
+        sync: false # e.g. https://eventiko.vercel.app
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+      - key: TICKET_SECRET
+        generateValue: true
+      - key: CRON_SECRET
+        generateValue: true
+      - key: RESEND_API_KEY
+        sync: false
+      - key: EMAIL_FROM
+        sync: false
+      - key: NEWS_API_KEY
+        sync: false
+      - key: GNEWS_API_KEY
+        sync: false
+
+  # Optional: scheduled news aggregation (the server also runs an in-process cron).
+  - type: cron
+    name: eventiko-news
+    runtime: node
+    plan: starter
+    rootDir: backend
+    schedule: "0 */6 * * *"
+    buildCommand: npm install && npm run build
+    startCommand: node dist/scripts/refresh-news.js
+    envVars:
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: NEWS_API_KEY
+        sync: false
+      - key: GNEWS_API_KEY
+        sync: false
