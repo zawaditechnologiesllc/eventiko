@@ -12,7 +12,7 @@ import {
   Building2,
   ShieldCheck,
 } from "lucide-react";
-import { getEventBySlug } from "@/lib/data";
+import { getEventBySlug, getSettings } from "@/lib/data";
 import { formatDate, formatDateTime, initials, truncate } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
@@ -74,7 +74,7 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
 
 export default async function EventDetailPage({ params }: { params: Params }) {
   const { slug } = await params;
-  const event = await getEventBySlug(slug);
+  const [event, settings] = await Promise.all([getEventBySlug(slug), getSettings()]);
   if (!event || event.status !== "published") notFound();
 
   const from = lowestPrice(event);
@@ -373,7 +373,11 @@ export default async function EventDetailPage({ params }: { params: Params }) {
         {/* Sticky purchase panel */}
         <aside className="lg:col-span-1">
           <div className="lg:sticky lg:top-24">
-            <TicketSelector event={event} />
+            <TicketSelector
+              event={event}
+              serviceFeePercent={settings.service_fee_percent}
+              serviceFeeFlat={settings.service_fee_flat}
+            />
             <p className="mt-4 px-1 text-center text-xs text-slate-400">
               By purchasing you agree to our{" "}
               <Link href="/terms" className="font-semibold text-slate-500 hover:underline">

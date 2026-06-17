@@ -68,6 +68,46 @@ export const api = {
     return `${API_URL}/api/orders/${orderNumber}/pdf`;
   },
 
+  /** Create a Stripe Checkout session to pay for an event promotion. */
+  createPromotionCheckout(
+    payload: { eventId: string; planId: string },
+    accessToken: string
+  ) {
+    return request<{ url: string; promotionId: string }>("/api/promotions/checkout", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${accessToken}` },
+      body: JSON.stringify(payload),
+    });
+  },
+
+  /** Start Stripe Connect onboarding for the seller. Returns a hosted link. */
+  connectOnboard(accessToken: string) {
+    return request<{ url: string }>("/api/connect/onboard", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+  },
+
+  /** Current Stripe Connect status for the seller. */
+  connectStatus(accessToken: string) {
+    return request<{
+      connected: boolean;
+      chargesEnabled: boolean;
+      payoutsEnabled: boolean;
+      onboarded: boolean;
+    }>("/api/connect/status", {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+  },
+
+  /** Admin: refund a paid order. */
+  refundOrder(orderNumber: string, accessToken: string) {
+    return request<{ ok: boolean }>(`/api/admin/orders/${orderNumber}/refund`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+  },
+
   /** Validate a scanned QR token (seller scanner). Requires bearer token. */
   validateTicket(payload: { token?: string; reference?: string; eventId: string }, accessToken: string) {
     return request<{

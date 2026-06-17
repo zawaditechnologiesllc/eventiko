@@ -1,9 +1,23 @@
-import { createReadOnlyClient } from "@/lib/supabase/server";
+import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import type { Broadcast, EventRecord, NewsArticle, Settings } from "@/lib/types";
+
+/**
+ * Cookie-free anon client for PUBLIC reads only. Avoiding cookies() lets the
+ * marketing pages render as cacheable/ISR for fast, CDN-served responses.
+ * RLS still applies (anon role).
+ */
+const publicClient = createSupabaseClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder.supabase.co",
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "placeholder",
+  { auth: { persistSession: false, autoRefreshToken: false } }
+);
 
 const FALLBACK_SETTINGS: Settings = {
   id: 1,
-  platform_fee_rate: 8,
+  platform_fee_rate: 5,
+  service_fee_percent: 5,
+  service_fee_flat: 0,
+  payout_mode: "manual",
   currency: "EUR",
   payout_min: 50,
   support_email: "support@eventiko.com",
@@ -22,7 +36,7 @@ const FALLBACK_SETTINGS: Settings = {
 
 export async function getSettings(): Promise<Settings> {
   try {
-    const supabase = await createReadOnlyClient();
+    const supabase = publicClient;
     const { data } = await supabase.from("settings").select("*").eq("id", 1).single();
     return (data as Settings) || FALLBACK_SETTINGS;
   } catch {
@@ -32,7 +46,7 @@ export async function getSettings(): Promise<Settings> {
 
 export async function getActiveBroadcasts(): Promise<Broadcast[]> {
   try {
-    const supabase = await createReadOnlyClient();
+    const supabase = publicClient;
     const { data } = await supabase
       .from("broadcasts")
       .select("*")
@@ -53,7 +67,7 @@ export async function getPublishedEvents(opts?: {
   limit?: number;
 }): Promise<EventRecord[]> {
   try {
-    const supabase = await createReadOnlyClient();
+    const supabase = publicClient;
     let query = supabase
       .from("events")
       .select("*, ticket_types(*), seller:sellers(business_name, logo_url)")
@@ -73,9 +87,27 @@ export async function getPublishedEvents(opts?: {
   }
 }
 
+/** Paid, currently-active homepage spotlight events. */
+export async function getPinnedEvents(limit = 6): Promise<EventRecord[]> {
+  try {
+    const supabase = publicClient;
+    const { data } = await supabase
+      .from("events")
+      .select("*, ticket_types(*), seller:sellers(business_name, logo_url)")
+      .eq("status", "published")
+      .eq("pinned", true)
+      .gt("pinned_until", new Date().toISOString())
+      .order("pinned_until", { ascending: false })
+      .limit(limit);
+    return (data as EventRecord[]) || [];
+  } catch {
+    return [];
+  }
+}
+
 export async function getEventBySlug(slug: string): Promise<EventRecord | null> {
   try {
-    const supabase = await createReadOnlyClient();
+    const supabase = publicClient;
     const { data } = await supabase
       .from("events")
       .select("*, ticket_types(*), seller:sellers(business_name, logo_url, description)")
@@ -89,7 +121,7 @@ export async function getEventBySlug(slug: string): Promise<EventRecord | null> 
 
 export async function getNews(limit = 24): Promise<NewsArticle[]> {
   try {
-    const supabase = await createReadOnlyClient();
+    const supabase = publicClient;
     const { data } = await supabase
       .from("news_articles")
       .select("*")

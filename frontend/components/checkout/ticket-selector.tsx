@@ -31,7 +31,15 @@ function getAvailability(type: TicketType): AvailabilityInfo {
   return { type, remaining, saleEnded, saleNotStarted, soldOut, buyable, maxSelectable };
 }
 
-export function TicketSelector({ event }: { event: EventRecord }) {
+export function TicketSelector({
+  event,
+  serviceFeePercent = 0,
+  serviceFeeFlat = 0,
+}: {
+  event: EventRecord;
+  serviceFeePercent?: number;
+  serviceFeeFlat?: number;
+}) {
   const ticketTypes = useMemo(
     () =>
       (event.ticket_types || [])
@@ -65,6 +73,15 @@ export function TicketSelector({ event }: { event: EventRecord }) {
   );
 
   const totalTickets = lineItems.reduce((sum, item) => sum + item.quantity, 0);
+
+  const serviceFee = useMemo(
+    () =>
+      subtotal > 0
+        ? Math.round((subtotal * serviceFeePercent) / 100 * 100 + serviceFeeFlat * 100) / 100
+        : 0,
+    [subtotal, serviceFeePercent, serviceFeeFlat]
+  );
+  const grandTotal = Math.round((subtotal + serviceFee) * 100) / 100;
 
   function setQty(id: string, next: number, max: number) {
     const clamped = Math.max(0, Math.min(next, max));
@@ -201,23 +218,34 @@ export function TicketSelector({ event }: { event: EventRecord }) {
       </div>
 
       <div className="border-t border-slate-100 px-6 py-5">
+        {totalTickets > 0 && serviceFee > 0 && (
+          <dl className="mb-3 space-y-1.5 text-sm">
+            <div className="flex items-center justify-between text-slate-500">
+              <dt>Subtotal ({totalTickets} {totalTickets === 1 ? "ticket" : "tickets"})</dt>
+              <dd>{formatMoney(subtotal, currency)}</dd>
+            </div>
+            <div className="flex items-center justify-between text-slate-500">
+              <dt>Service fee</dt>
+              <dd>{formatMoney(serviceFee, currency)}</dd>
+            </div>
+          </dl>
+        )}
         <div className="flex items-end justify-between">
           <div>
-            <p className="text-sm text-slate-500">
-              {totalTickets > 0
-                ? `${totalTickets} ${totalTickets === 1 ? "ticket" : "tickets"}`
-                : "Subtotal"}
-            </p>
+            <p className="text-sm text-slate-500">{totalTickets > 0 ? "Total" : "Subtotal"}</p>
             <p className="font-display text-2xl font-extrabold text-slate-900">
-              {formatMoney(subtotal, currency)}
+              {formatMoney(grandTotal, currency)}
             </p>
           </div>
-          {subtotal === 0 && totalTickets > 0 && (
+          {grandTotal === 0 && totalTickets > 0 && (
             <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-600">
               Free
             </span>
           )}
         </div>
+        {totalTickets === 0 && (serviceFeePercent > 0 || serviceFeeFlat > 0) && (
+          <p className="mt-1 text-xs text-slate-400">A small service fee applies at checkout.</p>
+        )}
 
         {error && (
           <div

@@ -85,9 +85,11 @@ export async function finalizeOrder(
 
   await issueTicketsForOrder(orderId);
 
-  // Bump ticket_types.sold and credit the seller's balance (net of fee).
+  // Bump ticket_types.sold. Credit the seller's platform balance only for
+  // manual-payout orders; Connect (direct payout) orders are paid by Stripe.
   const { error: rpcError } = await supabaseAdmin.rpc("finalize_paid_order", {
     p_order_id: orderId,
+    p_credit_balance: !(transitioned as { direct_payout?: boolean }).direct_payout,
   });
   if (rpcError) console.error("[finalize] rpc error:", rpcError.message);
 

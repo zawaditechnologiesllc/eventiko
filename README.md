@@ -20,16 +20,19 @@
 - Look up tickets any time with your order number + email.
 
 **For sellers (onboarded in ~2 minutes via “Sell tickets”)**
-- Seamless **3‑step onboarding**: business details → up to **3 payout accounts** → review. Start creating events right away.
+- Seamless **3‑step onboarding** (with required country + business details): business → up to **3 payout accounts** → review. Start creating events right away.
 - Create unlimited events, each with **multiple ticket categories/types** (e.g. General, VIP, Early Bird).
 - A **Ticket Studio** to fully customize each ticket: colors, layout, logo, banner, perks, terms, **expiry date**, inventory, max‑per‑order, with a **live preview**.
 - A **door scanner** (works on any phone via the browser camera) to validate QR codes in real time — each ticket admits **once**, with a manual reference fallback.
+- **Promote events** — pay to pin an event to the homepage **Spotlight** (admin confirms the payment, then it goes live for the plan's duration).
 - Sales dashboard, **available balance**, and **manual payout requests**.
 
 **For admins (full control center)**
 - Manage **sellers** (approve / reject / suspend, review their payout accounts), **users** (roles), **events** (feature / unpublish / delete), **orders**, **tickets**, and **payouts** (manual review & mark‑as‑paid).
-- Post **promotions & broadcasts** to the site‑wide hero bar.
-- Edit the **hero & footer** content, branding colors, support email, minimum payout, and the **platform fee % (default 8%)** — all from **Settings**.
+- Review **paid promotion requests** (confirm payment → pin to homepage) and set **promotion pricing plans** (by placement / days / price).
+- **Refund any paid order** in one click (Stripe refund → tickets cancelled → inventory released → seller balance reversed; Connect transfers/fees reversed automatically).
+- Choose the **payout mode** — *Manual* (admin reviews & pays) or *Automatic (Stripe Connect)* — and set the **seller commission % (default 5%)** and the **buyer service fee** (percent + flat markup).
+- Post **announcements** to the site‑wide hero bar, and edit the **hero & footer** content, branding colors, support email, and minimum payout — all from **Settings**.
 - Trigger / monitor the **news aggregator**.
 
 **Always‑on news**
@@ -157,7 +160,9 @@ For Stripe webhooks locally: `stripe listen --forward-to localhost:8080/api/webh
 | `FRONTEND_URL` | Frontend URL (CORS + Stripe redirects) |
 | `TICKET_SECRET` | Long random string; signs QR tokens |
 | `CRON_SECRET` | Protects the news refresh endpoint |
-| `RESEND_API_KEY` / `SMTP_*` | Optional email delivery (else logged) |
+| `RESEND_API_KEY` / `SMTP_*` | Email delivery via Resend or SMTP (else logged) |
+| `EMAIL_FROM` / `EMAIL_REPLY_TO` | Sender + reply‑to (use a **verified domain**) |
+| `SEND_EMAIL_HOOK_SECRET` | Supabase “Send Email” hook secret (branded auth emails) |
 | `NEWS_API_KEY` / `GNEWS_API_KEY` | Optional news enrichment (RSS needs none) |
 
 ---
@@ -167,7 +172,26 @@ For Stripe webhooks locally: `stripe listen --forward-to localhost:8080/api/webh
 - **Buying:** `ticket-selector` → `POST /api/checkout` creates a pending order + Stripe Checkout Session → buyer pays → Stripe **webhook** (and a **success‑page reconciliation** fallback) finalizes the order, **issues tickets** (signed QR + reference), bumps sold counts, credits the seller's balance (net of fee), and emails the buyer.
 - **QR & scanning:** each ticket's QR encodes a **JWT signed with `TICKET_SECRET`**. The seller's scanner posts it to `POST /api/scan/validate` (authorized by the seller's Supabase session); the backend verifies the signature, checks the event + expiry, and **atomically** flips `valid → used` so a ticket can't be admitted twice. Manual reference entry is supported as a fallback.
 - **Payouts:** sellers add up to 3 payout accounts and request withdrawals against their available balance; **all payouts are reviewed manually** by an admin who can approve / mark paid / reject.
-- **Fees:** the platform fee % lives in `settings.platform_fee_rate` (default 8) and is editable in **Admin → Settings**.
+- **Promotions:** a seller picks an event + a promotion plan → pays via Stripe → the webhook marks it `paid` → an admin **confirms the payment and activates** it, which pins the event to the homepage Spotlight (`events.pinned` + `pinned_until`) for the plan's duration. An hourly job unpins expired promotions.
+- **Two fees (both admin-set):**
+  - **Buyer service fee** — a markup added to the buyer's total **at checkout** (`service_fee_percent` + `service_fee_flat`), shown live in the ticket selector and as a Stripe line item. The platform keeps this.
+  - **Seller commission** — `platform_fee_rate` (**default 5%**), deducted from the seller's balance. Buyer pays face value + service fee; seller receives `subtotal − commission`. Platform earns `service_fee + commission`.
+
+---
+
+## 💳 Payments with a single Stripe account (the model we use)
+
+**Yes — one Stripe account collects all payments, and it works well.** Eventiko runs as the **merchant of record**: every buyer pays into your single platform Stripe account, and you **settle sellers manually** via the built‑in payout system. Concretely:
+
+- Each order records `subtotal`, the buyer `service_fee`, and the seller `platform_fee` (commission). On payment, the seller's `available_balance` is credited with `subtotal − commission`; the rest stays with the platform.
+- Sellers add payout accounts and **request withdrawals**; an admin reviews and pays them out (bank/PayPal/Wise/etc.) and marks the payout paid. The platform's owner account holds funds until then.
+- Promotions are charged to the same account.
+
+**What to keep in mind as merchant of record:** you are responsible for refunds/chargebacks, you hold balances/float, and you should reflect this in your Terms and handle tax/VAT for your jurisdiction.
+
+**Automatic payouts — Stripe Connect (also built in):** flip **Admin → Settings → Payout mode** to *Automatic (Stripe Connect)* and the platform switches to **destination charges**. Each seller connects an Express account from **Dashboard → Payouts** (Stripe hosts their KYC + bank onboarding). At checkout the buyer's payment is split automatically: the seller's connected account receives `subtotal − commission` and the platform keeps `service_fee + commission` as the Stripe **application fee** — Stripe then pays the seller out on its schedule, so there are no manual payouts. If a seller hasn't finished Connect onboarding yet, that event's checkout safely falls back to the manual model (funds to the platform). You can run the whole platform in either mode and switch any time.
+
+> Requirement: enable **Connect** on your Stripe account and add `account.updated` to your webhook (the app syncs each seller's onboarding status from it).
 
 ---
 
@@ -183,6 +207,11 @@ For Stripe webhooks locally: `stripe listen --forward-to localhost:8080/api/webh
 | `GET` | `/api/orders/:orderNumber/pdf` | Download all tickets in one PDF |
 | `GET` | `/api/tickets/:id/pdf` | Download a single ticket PDF |
 | `POST` | `/api/scan/validate` | Validate a QR/reference (seller/admin auth) |
+| `POST` | `/api/promotions/checkout` | Pay to promote an event (seller auth) |
+| `POST` | `/api/connect/onboard` | Start Stripe Connect onboarding (seller auth) |
+| `GET` | `/api/connect/status` | Seller's Connect status |
+| `POST` | `/api/admin/orders/:orderNumber/refund` | Refund a paid order (admin auth) |
+| `POST` | `/api/hooks/email` | Supabase Send‑Email hook → branded Resend emails |
 | `GET` | `/api/news` | Latest aggregated news |
 | `POST` | `/api/news/refresh` | Aggregate now (admin bearer or cron secret) |
 

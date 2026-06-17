@@ -6,7 +6,8 @@ import { ButtonLink } from "@/components/ui/button";
 import { timeFromNow, truncate } from "@/lib/utils";
 import { SITE } from "@/lib/constants";
 
-export const dynamic = "force-dynamic";
+// ISR: news refreshes on a schedule, so cache the page and revalidate often.
+export const revalidate = 900;
 
 export const metadata: Metadata = {
   title: "Events news & culture",

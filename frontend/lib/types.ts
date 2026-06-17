@@ -7,6 +7,7 @@ export type OrderStatus = "pending" | "paid" | "failed" | "refunded" | "cancelle
 export type TicketStatus = "valid" | "used" | "cancelled" | "expired";
 export type PayoutStatus = "pending" | "approved" | "paid" | "rejected";
 export type PayoutMethod = "bank" | "paypal" | "wise" | "mpesa" | "crypto" | "other";
+export type PromotionStatus = "pending_payment" | "paid" | "active" | "rejected" | "expired";
 
 export interface Profile {
   id: string;
@@ -38,6 +39,10 @@ export interface Seller {
   total_sales: number;
   total_paid_out: number;
   available_balance: number;
+  stripe_account_id: string | null;
+  stripe_charges_enabled: boolean;
+  stripe_payouts_enabled: boolean;
+  stripe_onboarded: boolean;
   created_at: string;
 }
 
@@ -79,12 +84,49 @@ export interface EventRecord {
   gallery: string[];
   status: EventStatus;
   featured: boolean;
+  pinned: boolean;
+  pinned_until: string | null;
   views: number;
   created_at: string;
   updated_at: string;
   // joined
   ticket_types?: TicketType[];
   seller?: Seller;
+}
+
+export interface PromotionPlan {
+  id: string;
+  name: string;
+  description: string | null;
+  placement: string;
+  duration_days: number;
+  price: number;
+  currency: string;
+  is_active: boolean;
+  sort_order: number;
+}
+
+export interface EventPromotion {
+  id: string;
+  event_id: string;
+  seller_id: string;
+  plan_id: string | null;
+  plan_name: string | null;
+  placement: string | null;
+  duration_days: number | null;
+  amount: number;
+  currency: string;
+  status: PromotionStatus;
+  stripe_session_id: string | null;
+  starts_at: string | null;
+  ends_at: string | null;
+  notes: string | null;
+  reviewed_at: string | null;
+  created_at: string;
+  // joined
+  event?: Partial<EventRecord>;
+  seller?: Partial<Seller>;
+  plan?: Partial<PromotionPlan>;
 }
 
 export interface TicketDesign {
@@ -127,10 +169,13 @@ export interface Order {
   buyer_phone: string | null;
   currency: string;
   subtotal: number;
+  service_fee: number;
+  service_fee_rate: number;
   platform_fee: number;
   platform_fee_rate: number;
   total: number;
   status: OrderStatus;
+  direct_payout: boolean;
   stripe_session_id: string | null;
   created_at: string;
   order_items?: OrderItem[];
@@ -213,6 +258,9 @@ export interface FooterColumn {
 export interface Settings {
   id: number;
   platform_fee_rate: number;
+  service_fee_percent: number;
+  service_fee_flat: number;
+  payout_mode: "manual" | "stripe_connect";
   currency: string;
   payout_min: number;
   support_email: string;
