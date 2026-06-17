@@ -30,8 +30,9 @@
 **For admins (full control center)**
 - Manage **sellers** (approve / reject / suspend, review their payout accounts), **users** (roles), **events** (feature / unpublish / delete), **orders**, **tickets**, and **payouts** (manual review & mark‑as‑paid).
 - Review **paid promotion requests** (confirm payment → pin to homepage) and set **promotion pricing plans** (by placement / days / price).
-- Post **announcements** to the site‑wide hero bar.
-- Edit the **hero & footer** content, branding colors, support email, minimum payout, the **seller commission % (default 5%)**, and the **buyer service fee** (percent + flat markup) — all from **Settings**.
+- **Refund any paid order** in one click (Stripe refund → tickets cancelled → inventory released → seller balance reversed; Connect transfers/fees reversed automatically).
+- Choose the **payout mode** — *Manual* (admin reviews & pays) or *Automatic (Stripe Connect)* — and set the **seller commission % (default 5%)** and the **buyer service fee** (percent + flat markup).
+- Post **announcements** to the site‑wide hero bar, and edit the **hero & footer** content, branding colors, support email, and minimum payout — all from **Settings**.
 - Trigger / monitor the **news aggregator**.
 
 **Always‑on news**
@@ -188,7 +189,9 @@ For Stripe webhooks locally: `stripe listen --forward-to localhost:8080/api/webh
 
 **What to keep in mind as merchant of record:** you are responsible for refunds/chargebacks, you hold balances/float, and you should reflect this in your Terms and handle tax/VAT for your jurisdiction.
 
-**The alternative — Stripe Connect:** if you later want Stripe to split funds and pay sellers automatically (each seller onboards their own connected account, Stripe handles their KYC + payouts, and you take an `application_fee`), migrate to **Connect destination charges**. It removes manual payouts and reduces your liability, at the cost of per‑seller onboarding. The current single‑account + manual‑payout model is intentionally simpler and is fully implemented here; Connect is a clean future upgrade because all the per‑order fee accounting already exists.
+**Automatic payouts — Stripe Connect (also built in):** flip **Admin → Settings → Payout mode** to *Automatic (Stripe Connect)* and the platform switches to **destination charges**. Each seller connects an Express account from **Dashboard → Payouts** (Stripe hosts their KYC + bank onboarding). At checkout the buyer's payment is split automatically: the seller's connected account receives `subtotal − commission` and the platform keeps `service_fee + commission` as the Stripe **application fee** — Stripe then pays the seller out on its schedule, so there are no manual payouts. If a seller hasn't finished Connect onboarding yet, that event's checkout safely falls back to the manual model (funds to the platform). You can run the whole platform in either mode and switch any time.
+
+> Requirement: enable **Connect** on your Stripe account and add `account.updated` to your webhook (the app syncs each seller's onboarding status from it).
 
 ---
 
@@ -205,6 +208,9 @@ For Stripe webhooks locally: `stripe listen --forward-to localhost:8080/api/webh
 | `GET` | `/api/tickets/:id/pdf` | Download a single ticket PDF |
 | `POST` | `/api/scan/validate` | Validate a QR/reference (seller/admin auth) |
 | `POST` | `/api/promotions/checkout` | Pay to promote an event (seller auth) |
+| `POST` | `/api/connect/onboard` | Start Stripe Connect onboarding (seller auth) |
+| `GET` | `/api/connect/status` | Seller's Connect status |
+| `POST` | `/api/admin/orders/:orderNumber/refund` | Refund a paid order (admin auth) |
 | `POST` | `/api/hooks/email` | Supabase Send‑Email hook → branded Resend emails |
 | `GET` | `/api/news` | Latest aggregated news |
 | `POST` | `/api/news/refresh` | Aggregate now (admin bearer or cron secret) |

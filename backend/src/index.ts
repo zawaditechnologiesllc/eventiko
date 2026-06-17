@@ -15,6 +15,8 @@ import { ticketsRouter } from "./routes/tickets";
 import { scanRouter } from "./routes/scan";
 import { newsRouter } from "./routes/news";
 import { promotionsRouter } from "./routes/promotions";
+import { connectRouter } from "./routes/connect";
+import { adminRouter } from "./routes/admin";
 import { aggregateNews } from "./services/news";
 import { supabaseAdmin } from "./lib/supabase";
 
@@ -68,6 +70,8 @@ app.use("/api/tickets", ticketsRouter);
 app.use("/api/scan", scanRouter);
 app.use("/api/news", newsRouter);
 app.use("/api/promotions", promotionsRouter);
+app.use("/api/connect", connectRouter);
+app.use("/api/admin", adminRouter);
 
 // 404
 app.use((_req, res) => res.status(404).json({ error: "Not found" }));

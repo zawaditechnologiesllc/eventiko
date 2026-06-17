@@ -39,6 +39,10 @@ export interface Seller {
   total_sales: number;
   total_paid_out: number;
   available_balance: number;
+  stripe_account_id: string | null;
+  stripe_charges_enabled: boolean;
+  stripe_payouts_enabled: boolean;
+  stripe_onboarded: boolean;
   created_at: string;
 }
 
@@ -171,6 +175,7 @@ export interface Order {
   platform_fee_rate: number;
   total: number;
   status: OrderStatus;
+  direct_payout: boolean;
   stripe_session_id: string | null;
   created_at: string;
   order_items?: OrderItem[];
@@ -255,6 +260,7 @@ export interface Settings {
   platform_fee_rate: number;
   service_fee_percent: number;
   service_fee_flat: number;
+  payout_mode: "manual" | "stripe_connect";
   currency: string;
   payout_min: number;
   support_email: string;

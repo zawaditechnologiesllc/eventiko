@@ -60,6 +60,20 @@ export async function stripeWebhookHandler(req: Request, res: Response) {
         }
         break;
       }
+      case "account.updated": {
+        // Stripe Connect: keep the seller's capability flags in sync.
+        const account = event.data.object as Stripe.Account;
+        const { supabaseAdmin } = await import("../lib/supabase");
+        await supabaseAdmin
+          .from("sellers")
+          .update({
+            stripe_charges_enabled: account.charges_enabled,
+            stripe_payouts_enabled: account.payouts_enabled,
+            stripe_onboarded: account.details_submitted,
+          })
+          .eq("stripe_account_id", account.id);
+        break;
+      }
       case "checkout.session.expired": {
         const session = event.data.object as Stripe.Checkout.Session;
         const orderId = session.metadata?.orderId;

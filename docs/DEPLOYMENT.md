@@ -25,7 +25,8 @@ Open **SQL Editor** and run each file's contents **in this order** (copy‑paste
 3. `supabase/migrations/0003_rls.sql` — Row Level Security policies.
 4. `supabase/migrations/0004_storage.sql` — storage buckets + policies.
 5. `supabase/migrations/0005_promotions_and_fees.sql` — buyer service fee, 5% seller commission, paid promotions (plans + requests), event pinning. **Additive & idempotent — safe on an existing DB.**
-6. `supabase/seed.sql` — default hero/footer/settings + a sample announcement.
+6. `supabase/migrations/0006_stripe_connect_and_refunds.sql` — payout mode, seller Connect account fields, refund/reverse functions. **Additive & idempotent.**
+7. `supabase/seed.sql` — default hero/footer/settings + a sample announcement.
 
 > Using the Supabase CLI instead? `supabase link` then `supabase db push` will apply `supabase/migrations/*`.
 
@@ -83,8 +84,10 @@ Deploy and note the URL, e.g. `https://eventiko-backend.onrender.com`.
 ## 4. Stripe webhook
 - Stripe → **Developers → Webhooks → Add endpoint**.
 - Endpoint URL: `https://<your-backend>.onrender.com/api/webhook/stripe`
-- Events: `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `checkout.session.expired`.
+- Events: `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `checkout.session.expired`, and **`account.updated`** (for Stripe Connect seller status).
 - Copy the **Signing secret** (`whsec_…`) into Render as `STRIPE_WEBHOOK_SECRET` and redeploy.
+
+**Automatic payouts (optional):** to let Stripe pay sellers directly, enable **Connect** on your Stripe account (Connect → Get started → Platform), then set **Admin → Settings → Payout mode** to *Automatic (Stripe Connect)*. Sellers connect from **Dashboard → Payouts**. Leave it on *Manual* to collect everything into your account and pay sellers via the admin payout review.
 
 > Even without the webhook, the success page reconciles the order directly with Stripe, but the webhook is the recommended source of truth in production. The same webhook also confirms **promotion** payments.
 
@@ -124,7 +127,9 @@ NEXT_PUBLIC_SITE_URL=https://<your-vercel-domain>
 - [ ] **Confirm account** + **reset password** emails arrive branded from your domain.
 - [ ] Seller **Promote** an event → pay → it shows as "Paid · review" under **Admin → Promotions** → admin **Confirm & activate** → event appears in the homepage **Spotlight**.
 - [ ] Admin **Settings**: change seller commission (5%) + buyer service fee; verify checkout reflects it.
-- [ ] Seller requests a payout; admin reviews it under **Admin → Payouts**.
+- [ ] Seller requests a payout; admin reviews it under **Admin → Payouts** (Manual mode).
+- [ ] (Connect mode) Seller connects Stripe under **Dashboard → Payouts**; a test purchase splits funds to the connected account.
+- [ ] Admin **Orders → Refund** a paid order → status becomes *refunded*, its tickets are cancelled (scanner rejects them).
 - [ ] Admin **News → Refresh now** pulls articles.
 
 ---

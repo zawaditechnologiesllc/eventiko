@@ -6,6 +6,7 @@ import { StatCard } from "@/components/dashboard/stat-card";
 import { StatusBadge } from "@/components/ui/badge";
 import { PayoutAccounts } from "@/components/dashboard/payout-accounts";
 import { RequestPayout } from "@/components/dashboard/request-payout";
+import { StripeConnect } from "@/components/dashboard/stripe-connect";
 import { formatMoney, formatDate } from "@/lib/utils";
 import type { Seller, PayoutAccount, Payout } from "@/lib/types";
 
@@ -29,13 +30,14 @@ export default async function PayoutsPage() {
   const [{ data: accountsData }, { data: payoutsData }, { data: settings }] = await Promise.all([
     supabase.from("payout_accounts").select("*").eq("seller_id", seller.id).order("created_at"),
     supabase.from("payouts").select("*").eq("seller_id", seller.id).order("requested_at", { ascending: false }),
-    supabase.from("settings").select("payout_min, currency").eq("id", 1).single(),
+    supabase.from("settings").select("payout_min, currency, payout_mode").eq("id", 1).single(),
   ]);
 
   const accounts = (accountsData as PayoutAccount[]) ?? [];
   const payouts = (payoutsData as Payout[]) ?? [];
   const currency = settings?.currency ?? "EUR";
   const minPayout = settings?.payout_min ?? 50;
+  const connectMode = settings?.payout_mode === "stripe_connect";
 
   return (
     <div className="space-y-6">
@@ -50,16 +52,20 @@ export default async function PayoutsPage() {
         <StatCard icon={<Banknote className="h-5 w-5" />} label="Total paid out" value={formatMoney(seller.total_paid_out ?? 0, currency)} />
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <PayoutAccounts sellerId={seller.id} initialAccounts={accounts} />
-        <RequestPayout
-          sellerId={seller.id}
-          balance={seller.available_balance ?? 0}
-          minPayout={minPayout}
-          currency={currency}
-          accounts={accounts}
-        />
-      </div>
+      {connectMode ? (
+        <StripeConnect />
+      ) : (
+        <div className="grid gap-6 lg:grid-cols-2">
+          <PayoutAccounts sellerId={seller.id} initialAccounts={accounts} />
+          <RequestPayout
+            sellerId={seller.id}
+            balance={seller.available_balance ?? 0}
+            minPayout={minPayout}
+            currency={currency}
+            accounts={accounts}
+          />
+        </div>
+      )}
 
       <div className="card overflow-hidden">
         <div className="border-b border-slate-100 px-5 py-4">

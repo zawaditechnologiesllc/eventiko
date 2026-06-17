@@ -17,6 +17,7 @@ const FALLBACK_SETTINGS: Settings = {
   platform_fee_rate: 5,
   service_fee_percent: 5,
   service_fee_flat: 0,
+  payout_mode: "manual",
   currency: "EUR",
   payout_min: 50,
   support_email: "support@eventiko.com",

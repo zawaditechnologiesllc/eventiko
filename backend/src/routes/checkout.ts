@@ -107,7 +107,7 @@ checkoutRouter.post(
     //    added to the buyer's total at checkout, set by the admin.
     const { data: settings } = await supabaseAdmin
       .from("settings")
-      .select("platform_fee_rate, service_fee_percent, service_fee_flat")
+      .select("platform_fee_rate, service_fee_percent, service_fee_flat, payout_mode")
       .eq("id", 1)
       .single();
 
@@ -133,6 +133,22 @@ checkoutRouter.post(
       });
     }
 
+    // Stripe Connect: if enabled and the seller is onboarded, route funds to
+    // their connected account and take the fees as an application fee.
+    let useConnect = false;
+    let sellerStripeAccount: string | null = null;
+    if (settings?.payout_mode === "stripe_connect") {
+      const { data: sellerRow } = await supabaseAdmin
+        .from("sellers")
+        .select("stripe_account_id, stripe_charges_enabled")
+        .eq("id", event.seller_id)
+        .single();
+      if (sellerRow?.stripe_account_id && sellerRow.stripe_charges_enabled) {
+        useConnect = true;
+        sellerStripeAccount = sellerRow.stripe_account_id;
+      }
+    }
+
     const orderNumber = generateOrderNumber();
 
     const { data: order, error: orderErr } = await supabaseAdmin
@@ -151,6 +167,7 @@ checkoutRouter.post(
         platform_fee: platformFee,
         platform_fee_rate: feeRate,
         total,
+        direct_payout: useConnect,
         status: "pending",
       })
       .select("id")
@@ -172,6 +189,7 @@ checkoutRouter.post(
       });
     }
 
+    const applicationFee = Math.round((serviceFee + platformFee) * 100); // cents
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
       line_items: lineItems,
@@ -182,6 +200,12 @@ checkoutRouter.post(
       payment_intent_data: {
         description: `Eventiko order ${orderNumber} — ${event.title}`,
         metadata: { orderId: order.id, orderNumber },
+        ...(useConnect && sellerStripeAccount
+          ? {
+              application_fee_amount: applicationFee,
+              transfer_data: { destination: sellerStripeAccount },
+            }
+          : {}),
       },
     });
 

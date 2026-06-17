@@ -13,6 +13,7 @@ export function SettingsForm({ initial }: { initial: Settings }) {
     platform_fee_rate: String(initial.platform_fee_rate ?? 5),
     service_fee_percent: String(initial.service_fee_percent ?? 0),
     service_fee_flat: String(initial.service_fee_flat ?? 0),
+    payout_mode: initial.payout_mode ?? "manual",
     currency: initial.currency ?? "EUR",
     payout_min: String(initial.payout_min ?? 50),
     support_email: initial.support_email ?? "",
@@ -63,6 +64,7 @@ export function SettingsForm({ initial }: { initial: Settings }) {
           platform_fee_rate: fee,
           service_fee_percent: Number(s.service_fee_percent) || 0,
           service_fee_flat: Number(s.service_fee_flat) || 0,
+          payout_mode: s.payout_mode,
           currency: s.currency,
           payout_min: Number(s.payout_min) || 0,
           support_email: s.support_email.trim(),
@@ -109,6 +111,13 @@ export function SettingsForm({ initial }: { initial: Settings }) {
             <select className="input" value={s.currency} onChange={(e) => setS({ ...s, currency: e.target.value })}>
               {["EUR", "GBP", "USD"].map((c) => <option key={c}>{c}</option>)}
             </select>
+          </Field>
+          <Field label="Payout mode">
+            <select className="input" value={s.payout_mode} onChange={(e) => setS({ ...s, payout_mode: e.target.value as "manual" | "stripe_connect" })}>
+              <option value="manual">Manual (admin reviews & pays)</option>
+              <option value="stripe_connect">Automatic (Stripe Connect)</option>
+            </select>
+            <p className="mt-1 text-xs text-slate-400">Connect routes funds to each seller automatically.</p>
           </Field>
           <Field label="Minimum payout">
             <input type="number" min="0" className="input" value={s.payout_min} onChange={(e) => setS({ ...s, payout_min: e.target.value })} />
