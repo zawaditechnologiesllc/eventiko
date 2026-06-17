@@ -17,8 +17,14 @@ Key DB functions: `handle_new_user` (auto‑create profile on signup), `is_admin
 - **QR tokens** are HMAC‑signed JWTs (`TICKET_SECRET`); validation is server‑side and single‑use via an atomic `valid → used` update.
 - **Stripe webhooks** are signature‑verified. Finalization is idempotent: the order status transition is atomic, ticket issuance checks for existing tickets, and balance crediting runs once.
 
-## Money flow
-Buyer pays face value via Stripe Checkout. Per order we store `subtotal`, `platform_fee_rate` (from settings, default 8%), and `platform_fee`. On finalize, the seller's `available_balance` increases by `subtotal − platform_fee`. Sellers request payouts against that balance; admins approve/pay manually.
+## Money flow (single Stripe account, platform = merchant of record)
+All payments land in one platform Stripe account. Per order we store `subtotal`, the buyer `service_fee` (`service_fee_percent` + `service_fee_flat`, admin‑set markup added to the buyer's total), and the seller `platform_fee` (commission, default **5%**, admin‑set). The buyer pays `subtotal + service_fee`. On finalize, the seller's `available_balance` increases by `subtotal − platform_fee`; the platform keeps `service_fee + platform_fee`. Sellers request payouts against their balance; admins approve and pay them out manually. (Stripe Connect is a clean future upgrade since all per‑order fee accounting already exists.)
+
+## Promotions
+`promotion_plans` (admin pricing by placement/days/price) and `event_promotions` (a seller's purchase). Flow: seller checks out a plan for an event (`/api/promotions/checkout`) → Stripe → webhook sets the promotion `paid` → an admin confirms payment and activates it, setting `events.pinned=true` + `pinned_until` for the plan duration. `expire_promotions()` (hourly cron) unpins expired events. The homepage queries pinned events for the "Spotlight".
+
+## SEO & performance
+SSR + Tailwind, per‑route `metadata` + OpenGraph/Twitter cards, `sitemap.xml` (incl. event slugs), `robots.txt`, a web manifest, and JSON‑LD `Event` structured data on event pages. Public pages fetch with a cookie‑free anon client so they render as **ISR** (homepage 5 min, news 15 min) and are served from Vercel's CDN for fast TTFB and strong Core Web Vitals; fonts use `next/font` with `display: swap`. (A literal sub‑2‑millisecond load is not physically possible — network latency alone exceeds that — so we optimize for top‑tier Core Web Vitals and sub‑second cached loads.)
 
 ## Order lifecycle
 ```

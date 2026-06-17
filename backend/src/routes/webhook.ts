@@ -33,13 +33,29 @@ export async function stripeWebhookHandler(req: Request, res: Response) {
       case "checkout.session.completed":
       case "checkout.session.async_payment_succeeded": {
         const session = event.data.object as Stripe.Checkout.Session;
+        if (session.payment_status !== "paid") break;
+
+        // Promotion payment → mark paid (awaiting admin confirmation).
+        if (session.metadata?.type === "promotion" && session.metadata?.promotionId) {
+          const { supabaseAdmin } = await import("../lib/supabase");
+          await supabaseAdmin
+            .from("event_promotions")
+            .update({
+              status: "paid",
+              stripe_payment_intent:
+                typeof session.payment_intent === "string" ? session.payment_intent : null,
+            })
+            .eq("id", session.metadata.promotionId)
+            .eq("status", "pending_payment");
+          break;
+        }
+
+        // Ticket order payment.
         const orderId = session.metadata?.orderId;
-        if (orderId && session.payment_status === "paid") {
+        if (orderId) {
           await finalizeOrder(
             orderId,
-            typeof session.payment_intent === "string"
-              ? session.payment_intent
-              : undefined
+            typeof session.payment_intent === "string" ? session.payment_intent : undefined
           );
         }
         break;

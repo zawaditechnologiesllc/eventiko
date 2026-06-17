@@ -8,12 +8,15 @@ import cron from "node-cron";
 import { config } from "./config";
 import { AppError } from "./lib/http";
 import { stripeWebhookHandler } from "./routes/webhook";
+import { emailHookHandler } from "./routes/hooks";
 import { checkoutRouter } from "./routes/checkout";
 import { ordersRouter } from "./routes/orders";
 import { ticketsRouter } from "./routes/tickets";
 import { scanRouter } from "./routes/scan";
 import { newsRouter } from "./routes/news";
+import { promotionsRouter } from "./routes/promotions";
 import { aggregateNews } from "./services/news";
+import { supabaseAdmin } from "./lib/supabase";
 
 const app = express();
 
@@ -36,8 +39,9 @@ app.use(
 
 app.use(morgan(config.isProd ? "combined" : "dev"));
 
-// Stripe webhook needs the RAW body — mount BEFORE the JSON parser.
+// Stripe webhook + Supabase email hook need the RAW body — mount BEFORE JSON.
 app.post("/api/webhook/stripe", express.raw({ type: "application/json" }), stripeWebhookHandler);
+app.post("/api/hooks/email", express.raw({ type: "application/json" }), emailHookHandler);
 
 // JSON for everything else.
 app.use(express.json({ limit: "1mb" }));
@@ -63,6 +67,7 @@ app.use("/api/orders", ordersRouter);
 app.use("/api/tickets", ticketsRouter);
 app.use("/api/scan", scanRouter);
 app.use("/api/news", newsRouter);
+app.use("/api/promotions", promotionsRouter);
 
 // 404
 app.use((_req, res) => res.status(404).json({ error: "Not found" }));
@@ -87,5 +92,13 @@ app.listen(config.port, () => {
     setTimeout(() => {
       aggregateNews().catch((e) => console.error("[boot] news failed:", e.message));
     }, 8000);
+
+    // Expire finished promotions (unpin events) every hour.
+    cron.schedule("0 * * * *", () => {
+      supabaseAdmin.rpc("expire_promotions").then(
+        () => {},
+        (e: { message?: string }) => console.error("[cron] expire_promotions failed:", e?.message)
+      );
+    });
   }
 });

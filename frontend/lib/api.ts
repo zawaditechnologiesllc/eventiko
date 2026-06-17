@@ -68,6 +68,18 @@ export const api = {
     return `${API_URL}/api/orders/${orderNumber}/pdf`;
   },
 
+  /** Create a Stripe Checkout session to pay for an event promotion. */
+  createPromotionCheckout(
+    payload: { eventId: string; planId: string },
+    accessToken: string
+  ) {
+    return request<{ url: string; promotionId: string }>("/api/promotions/checkout", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${accessToken}` },
+      body: JSON.stringify(payload),
+    });
+  },
+
   /** Validate a scanned QR token (seller scanner). Requires bearer token. */
   validateTicket(payload: { token?: string; reference?: string; eventId: string }, accessToken: string) {
     return request<{

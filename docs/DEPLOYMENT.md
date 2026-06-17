@@ -24,7 +24,8 @@ Open **SQL Editor** and run each file's contents **in this order** (copy‑paste
 2. `supabase/migrations/0002_functions_triggers.sql` — `handle_new_user`, payout‑limit trigger, `finalize_paid_order`, etc.
 3. `supabase/migrations/0003_rls.sql` — Row Level Security policies.
 4. `supabase/migrations/0004_storage.sql` — storage buckets + policies.
-5. `supabase/seed.sql` — default hero/footer/settings + a sample promotion.
+5. `supabase/migrations/0005_promotions_and_fees.sql` — buyer service fee, 5% seller commission, paid promotions (plans + requests), event pinning. **Additive & idempotent — safe on an existing DB.**
+6. `supabase/seed.sql` — default hero/footer/settings + a sample announcement.
 
 > Using the Supabase CLI instead? `supabase link` then `supabase db push` will apply `supabase/migrations/*`.
 
@@ -68,8 +69,11 @@ STRIPE_SECRET_KEY=sk_...
 STRIPE_WEBHOOK_SECRET=whsec_...                # set after creating the webhook
 TICKET_SECRET=<long random string>
 CRON_SECRET=<long random string>
-# optional
+# email (recommended — see docs/EMAILS.md for domain verification + anti-spam)
 RESEND_API_KEY=...        EMAIL_FROM="Eventiko <tickets@yourdomain>"
+EMAIL_REPLY_TO=support@yourdomain   SUPPORT_EMAIL=support@yourdomain
+SEND_EMAIL_HOOK_SECRET=v1,whsec_...    # from Supabase Auth → Hooks (step 4b)
+# optional news enrichment
 NEWS_API_KEY=...          GNEWS_API_KEY=...
 ```
 Deploy and note the URL, e.g. `https://eventiko-backend.onrender.com`.
@@ -82,7 +86,10 @@ Deploy and note the URL, e.g. `https://eventiko-backend.onrender.com`.
 - Events: `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `checkout.session.expired`.
 - Copy the **Signing secret** (`whsec_…`) into Render as `STRIPE_WEBHOOK_SECRET` and redeploy.
 
-> Even without the webhook, the success page reconciles the order directly with Stripe, but the webhook is the recommended source of truth in production.
+> Even without the webhook, the success page reconciles the order directly with Stripe, but the webhook is the recommended source of truth in production. The same webhook also confirms **promotion** payments.
+
+### 4b. Branded emails (Resend) — confirm account / reset password / tickets
+Follow **[`docs/EMAILS.md`](EMAILS.md)**: verify your domain in Resend (SPF/DKIM/DMARC so mail doesn't land in spam), set `RESEND_API_KEY` + `EMAIL_FROM` + `EMAIL_REPLY_TO`, then in **Supabase → Authentication → Hooks → Send Email Hook** enable it, point it at `https://<your-backend>.onrender.com/api/hooks/email`, and put its secret in `SEND_EMAIL_HOOK_SECRET`.
 
 ---
 
@@ -113,6 +120,10 @@ NEXT_PUBLIC_SITE_URL=https://<your-vercel-domain>
 - [ ] As a visitor (incognito), buy a ticket with a [Stripe test card](https://stripe.com/docs/testing) `4242 4242 4242 4242`.
 - [ ] Success page shows the QR + reference and **Download PDF** works; confirmation email arrives (if email configured).
 - [ ] Seller **Scanner** validates the QR (green = admit), and a second scan shows “already used”.
+- [ ] Buyer sees the **service fee** line in the selector and on Stripe; the **ticket email** arrives (inbox, not spam).
+- [ ] **Confirm account** + **reset password** emails arrive branded from your domain.
+- [ ] Seller **Promote** an event → pay → it shows as "Paid · review" under **Admin → Promotions** → admin **Confirm & activate** → event appears in the homepage **Spotlight**.
+- [ ] Admin **Settings**: change seller commission (5%) + buyer service fee; verify checkout reflects it.
 - [ ] Seller requests a payout; admin reviews it under **Admin → Payouts**.
 - [ ] Admin **News → Refresh now** pulls articles.
 

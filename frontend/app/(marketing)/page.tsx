@@ -14,11 +14,15 @@ import {
   Calendar,
   Newspaper,
 } from "lucide-react";
-import { getPublishedEvents, getNews, getSettings } from "@/lib/data";
+import { getPublishedEvents, getNews, getSettings, getPinnedEvents } from "@/lib/data";
 import { EventCard } from "@/components/events/event-card";
+import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { EVENT_CATEGORIES, SITE } from "@/lib/constants";
 import { timeFromNow, truncate } from "@/lib/utils";
+
+// ISR: serve a fast, CDN-cached homepage and refresh it periodically.
+export const revalidate = 300;
 
 export const metadata: Metadata = {
   title: `${SITE.name} — Buy & sell tickets to unforgettable events`,
@@ -48,9 +52,10 @@ const CATEGORY_EMOJI: Record<string, string> = {
 
 export default async function HomePage() {
   const settings = await getSettings();
-  const [featuredRaw, news] = await Promise.all([
+  const [featuredRaw, news, pinned] = await Promise.all([
     getPublishedEvents({ featured: true, limit: 8 }),
     getNews(3),
+    getPinnedEvents(6),
   ]);
 
   const featured = featuredRaw.length ? featuredRaw : await getPublishedEvents({ limit: 8 });
@@ -162,6 +167,35 @@ export default async function HomePage() {
           ))}
         </div>
       </section>
+
+      {/* SPOTLIGHT (paid promotions) */}
+      {pinned.length > 0 && (
+        <section className="container-page mt-20">
+          <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-end">
+            <div>
+              <span className="inline-flex items-center gap-2 rounded-full bg-amber-100 px-3 py-1 text-xs font-bold uppercase tracking-wider text-amber-700">
+                <Sparkles className="h-3.5 w-3.5" />
+                Spotlight
+              </span>
+              <h2 className="mt-3 font-display text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl">
+                ✨ Spotlight
+              </h2>
+              <p className="mt-2 text-slate-500">Promoted events worth your attention.</p>
+            </div>
+          </div>
+
+          <div className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {pinned.map((event) => (
+              <div key={event.id} className="relative">
+                <div className="absolute right-3 top-3 z-10">
+                  <Badge tone="amber">★ Promoted</Badge>
+                </div>
+                <EventCard event={event} />
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* FEATURED EVENTS */}
       <section className="container-page mt-20">

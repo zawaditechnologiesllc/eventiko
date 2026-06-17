@@ -10,7 +10,9 @@ import type { Settings, FooterColumn } from "@/lib/types";
 export function SettingsForm({ initial }: { initial: Settings }) {
   const router = useRouter();
   const [s, setS] = useState({
-    platform_fee_rate: String(initial.platform_fee_rate ?? 8),
+    platform_fee_rate: String(initial.platform_fee_rate ?? 5),
+    service_fee_percent: String(initial.service_fee_percent ?? 0),
+    service_fee_flat: String(initial.service_fee_flat ?? 0),
     currency: initial.currency ?? "EUR",
     payout_min: String(initial.payout_min ?? 50),
     support_email: initial.support_email ?? "",
@@ -59,6 +61,8 @@ export function SettingsForm({ initial }: { initial: Settings }) {
         .from("settings")
         .update({
           platform_fee_rate: fee,
+          service_fee_percent: Number(s.service_fee_percent) || 0,
+          service_fee_flat: Number(s.service_fee_flat) || 0,
           currency: s.currency,
           payout_min: Number(s.payout_min) || 0,
           support_email: s.support_email.trim(),
@@ -87,10 +91,19 @@ export function SettingsForm({ initial }: { initial: Settings }) {
   return (
     <div className="space-y-6 pb-24">
       {/* Platform */}
-      <Section icon={<Percent className="h-4 w-4" />} title="Platform & fees" desc="The commission charged to sellers on every ticket sold.">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <Field label="Platform fee (%)">
+      <Section icon={<Percent className="h-4 w-4" />} title="Fees" desc="Seller commission is deducted from payouts. The buyer service fee is a markup added at checkout.">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <Field label="Seller commission (%)">
             <input type="number" min="0" max="100" step="0.1" className="input" value={s.platform_fee_rate} onChange={(e) => setS({ ...s, platform_fee_rate: e.target.value })} />
+            <p className="mt-1 text-xs text-slate-400">Charged to sellers, deducted from their balance.</p>
+          </Field>
+          <Field label="Buyer service fee (%)">
+            <input type="number" min="0" max="100" step="0.1" className="input" value={s.service_fee_percent} onChange={(e) => setS({ ...s, service_fee_percent: e.target.value })} />
+            <p className="mt-1 text-xs text-slate-400">Added to the buyer&apos;s total at checkout.</p>
+          </Field>
+          <Field label="Buyer service fee (flat)">
+            <input type="number" min="0" step="0.01" className="input" value={s.service_fee_flat} onChange={(e) => setS({ ...s, service_fee_flat: e.target.value })} />
+            <p className="mt-1 text-xs text-slate-400">Fixed amount added per order.</p>
           </Field>
           <Field label="Default currency">
             <select className="input" value={s.currency} onChange={(e) => setS({ ...s, currency: e.target.value })}>

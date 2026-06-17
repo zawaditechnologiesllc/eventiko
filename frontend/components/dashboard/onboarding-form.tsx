@@ -56,7 +56,7 @@ export function OnboardingForm({
   const [legalName, setLegalName] = useState("");
   const [contactEmail, setContactEmail] = useState(defaultEmail);
   const [contactPhone, setContactPhone] = useState("");
-  const [country, setCountry] = useState<string>(COUNTRIES[0]);
+  const [country, setCountry] = useState<string>("");
   const [city, setCity] = useState("");
   const [address, setAddress] = useState("");
   const [website, setWebsite] = useState("");
@@ -90,7 +90,11 @@ export function OnboardingForm({
     if (!businessName.trim()) return "Business name is required.";
     if (!contactEmail.trim()) return "Contact email is required.";
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactEmail)) return "Enter a valid contact email.";
-    if (!country) return "Please select a country.";
+    if (!contactPhone.trim()) return "A contact phone number is required.";
+    if (!country) return "Please select your country.";
+    if (!city.trim()) return "Please enter your city.";
+    if (description.trim().length < 20)
+      return "Tell us a bit about your business (at least 20 characters).";
     return null;
   }
 
@@ -316,7 +320,7 @@ export function OnboardingForm({
                 />
               </div>
               <div>
-                <label className="label">Contact phone</label>
+                <label className="label">Contact phone *</label>
                 <input
                   className="input"
                   value={contactPhone}
@@ -331,6 +335,9 @@ export function OnboardingForm({
                   value={country}
                   onChange={(e) => setCountry(e.target.value)}
                 >
+                  <option value="" disabled>
+                    Select your country…
+                  </option>
                   {COUNTRIES.map((c) => (
                     <option key={c} value={c}>
                       {c}
@@ -339,7 +346,7 @@ export function OnboardingForm({
                 </select>
               </div>
               <div>
-                <label className="label">City</label>
+                <label className="label">City *</label>
                 <input
                   className="input"
                   value={city}
@@ -357,7 +364,7 @@ export function OnboardingForm({
                 />
               </div>
               <div className="sm:col-span-2">
-                <label className="label">About your business</label>
+                <label className="label">About your business *</label>
                 <textarea
                   className="input min-h-[100px]"
                   value={description}

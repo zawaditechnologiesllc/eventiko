@@ -100,14 +100,38 @@ checkoutRouter.post(
       }
     }
 
-    // Platform fee (8% by default) is charged to the seller, deducted from payout.
+    // Fees:
+    //  - Seller commission (platform_fee_rate, default 5%) is charged to the
+    //    seller and deducted from their payout balance.
+    //  - Buyer service fee (service_fee_percent + service_fee_flat) is a markup
+    //    added to the buyer's total at checkout, set by the admin.
     const { data: settings } = await supabaseAdmin
       .from("settings")
-      .select("platform_fee_rate")
+      .select("platform_fee_rate, service_fee_percent, service_fee_flat")
       .eq("id", 1)
       .single();
-    const feeRate = settings?.platform_fee_rate ?? 8;
-    const platformFee = Math.round(subtotal * feeRate) / 100;
+
+    const feeRate = settings?.platform_fee_rate ?? 5;
+    const serviceRate = settings?.service_fee_percent ?? 0;
+    const serviceFlat = settings?.service_fee_flat ?? 0;
+
+    const platformFee = Math.round(subtotal * feeRate) / 100; // seller commission
+    const serviceFee =
+      subtotal > 0
+        ? Math.round((subtotal * serviceRate) / 100 * 100 + serviceFlat * 100) / 100
+        : 0; // buyer markup
+    const total = Math.round((subtotal + serviceFee) * 100) / 100;
+
+    if (serviceFee > 0) {
+      lineItems.push({
+        quantity: 1,
+        price_data: {
+          currency: currency.toLowerCase(),
+          unit_amount: Math.round(serviceFee * 100),
+          product_data: { name: "Service fee" },
+        },
+      });
+    }
 
     const orderNumber = generateOrderNumber();
 
@@ -122,9 +146,11 @@ checkoutRouter.post(
         buyer_phone: buyer.phone || null,
         currency,
         subtotal,
+        service_fee: serviceFee,
+        service_fee_rate: serviceRate,
         platform_fee: platformFee,
         platform_fee_rate: feeRate,
-        total: subtotal,
+        total,
         status: "pending",
       })
       .select("id")
@@ -135,8 +161,8 @@ checkoutRouter.post(
       .from("order_items")
       .insert(orderItems.map((oi) => ({ ...oi, order_id: order.id })));
 
-    // Free tickets: skip Stripe entirely and confirm immediately.
-    if (subtotal === 0 || lineItems.length === 0) {
+    // Free order (no ticket price and no service fee): skip Stripe entirely.
+    if (total === 0 || lineItems.length === 0) {
       const { finalizeOrder } = await import("../services/ticketing");
       await finalizeOrder(order.id);
       return res.json({

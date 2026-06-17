@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
   CalendarDays,
+  Rocket,
   Receipt,
   ScanLine,
   Wallet,
@@ -24,6 +25,7 @@ import { cn, initials } from "@/lib/utils";
 const NAV = [
   { label: "Overview", href: "/dashboard", icon: LayoutDashboard },
   { label: "Events", href: "/dashboard/events", icon: CalendarDays },
+  { label: "Promote", href: "/dashboard/promote", icon: Rocket },
   { label: "Sales", href: "/dashboard/orders", icon: Receipt },
   { label: "Scanner", href: "/dashboard/scanner", icon: ScanLine },
   { label: "Payouts", href: "/dashboard/payouts", icon: Wallet },
